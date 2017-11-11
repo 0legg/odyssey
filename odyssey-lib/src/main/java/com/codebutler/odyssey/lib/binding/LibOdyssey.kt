@@ -22,6 +22,7 @@ package com.codebutler.odyssey.lib.binding
 import com.codebutler.odyssey.lib.retro.LibRetro
 import com.sun.jna.Library
 import com.sun.jna.Native
+import com.sun.jna.Pointer
 
 interface LibOdyssey : Library {
 
@@ -32,4 +33,6 @@ interface LibOdyssey : Library {
     fun odyssey_set_log_callback(cb: LibRetro.retro_log_printf_t)
 
     fun odyssey_get_retro_log_printf(): LibRetro.retro_log_printf_t
+
+    fun odyssey_get_egl_proc_address(sym: String): Pointer
 }

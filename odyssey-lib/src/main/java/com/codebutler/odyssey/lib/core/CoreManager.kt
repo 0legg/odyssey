@@ -49,6 +49,16 @@ class CoreManager(retrofit: Retrofit, private val coresDir: File) {
         val libFileName = zipFileName.substringBeforeLast(".zip")
         val destFile = File(coresDir, "lib$libFileName")
 
+        // FIXME: Delete this.
+        // Quick hack to load one of the test cores from:
+        // https://github.com/libretro/libretro-samples/tree/master/video/software/rendering
+        // https://github.com/libretro/libretro-samples/tree/master/video/opengl/libretro_test_gl_shaders
+        // val overrideFile = File("/sdcard/libretro.so")
+        val overrideFile = File("/sdcard/libretro-test-gl.so")
+        if (overrideFile.exists()) {
+            overrideFile.copyTo(destFile, true)
+        }
+
         if (destFile.exists()) {
             return Single.just(destFile)
         }

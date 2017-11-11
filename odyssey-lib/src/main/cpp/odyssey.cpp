@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <limits.h>
+#include <EGL/egl.h>
 
 extern "C" {
     enum retro_log_level {
@@ -53,5 +54,10 @@ extern "C" {
     JNIEXPORT
     retro_log_printf_t odyssey_get_retro_log_printf() {
         return _retro_log_printf;
+    }
+
+    JNIEXPORT
+    void* odyssey_get_egl_proc_address(const char *sym) {
+        return (void*) eglGetProcAddress(sym);
     }
 }

@@ -35,6 +35,7 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
 import com.sun.jna.ptr.PointerByReference
+import timber.log.Timber
 import java.nio.ByteBuffer
 
 /**
@@ -102,6 +103,21 @@ class Retro(coreLibraryName: String) {
     private val videoBufferCache = BufferCache()
     private val audioBufferCache = BufferCache()
 
+    private val hwGetProcAddressCb = object : LibRetro.retro_hw_get_proc_address_t {
+        override fun invoke(sym: String): Pointer {
+            Timber.d("Get proc address: $sym")
+            return LibOdyssey.INSTANCE.odyssey_get_egl_proc_address(sym)
+        }
+    }
+
+    private val hwGetCurrentFbCb = object : LibRetro.retro_hw_get_current_framebuffer_t {
+        override fun invoke(): Pointer {
+            Timber.d("Get FB callback!!")
+            // FIXME: Return framebuffer pointer!!
+            return Pointer.NULL
+        }
+    }
+
     data class ControllerDescription(
             val desc: String,
             val id: Device)
@@ -112,7 +128,7 @@ class Retro(coreLibraryName: String) {
     data class SystemInfo(
             val libraryName: String,
             val libraryVersion: String,
-            val validExtensions: String,
+            val validExtensions: String?,
             val needFullpath: Boolean,
             val blockExtract: Boolean)
 
@@ -297,7 +313,7 @@ class Retro(coreLibraryName: String) {
         return SystemInfo(
                 libraryName = info.library_name!!,
                 libraryVersion = info.library_version!!,
-                validExtensions = info.valid_extensions!!,
+                validExtensions = info.valid_extensions,
                 needFullpath = info.need_fullpath,
                 blockExtract = info.block_extract
         )
@@ -355,17 +371,20 @@ class Retro(coreLibraryName: String) {
         libRetro.retro_run()
     }
 
-    fun getMemoryData(memory: MemoryId): ByteArray {
+    fun getMemoryData(memory: MemoryId): ByteArray? {
         val id = UnsignedInt(memory.value.toLong())
         val size = libRetro.retro_get_memory_size(id).toInt()
+        if (size == 0) {
+            return null
+        }
         val pointer = libRetro.retro_get_memory_data(id)
-        return pointer.getByteArray(0, size)
+        return pointer?.getByteArray(0, size)
     }
 
     fun setMemoryData(memory: MemoryId, data: ByteArray) {
         val id = UnsignedInt(memory.value.toLong())
         val pointer = libRetro.retro_get_memory_data(id)
-        pointer.write(0, data, 0, data.size)
+        pointer?.write(0, data, 0, data.size)
     }
 
     private class RetroEnvironmentT(private val retro: Retro) : LibRetro.retro_environment_t {
@@ -408,6 +427,15 @@ class Retro(coreLibraryName: String) {
                             offset += descriptor.size()
                         }
                         callback.onSetInputDescriptors(descriptors.toList())
+                        return true
+                    }
+                    LibRetro.RETRO_ENVIRONMENT_SET_HW_RENDER -> {
+                        val cb = LibRetro.retro_hw_render_callback(data)
+                        Timber.d("Set HW Render! Context type: ${cb.context_type}")
+                        cb.get_proc_address = retro.hwGetProcAddressCb
+                        cb.get_current_framebuffer = retro.hwGetCurrentFbCb
+                        cb.write()
+                        cb.context_reset?.invoke()
                         return true
                     }
                     LibRetro.RETRO_ENVIRONMENT_GET_VARIABLE -> {
